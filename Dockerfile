@@ -84,7 +84,7 @@ ENV PYENV_ROOT=/opt/pyenv \
     PYTHON_VERSION=${PYTHON_VERSION}
 
 # Install python from pyenv
-RUN apt-get update -qq && apt-get install -y --no-install-recommends --no-install-suggests build-essential libssl-dev zlib1g-dev \
+RUN apt-get install -y --no-install-recommends --no-install-suggests build-essential libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev curl \
         libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev \
     && curl https://pyenv.run | bash \
@@ -125,16 +125,14 @@ ENV RBENV_ROOT=/opt/rbenv \
 # focal is giving me trouble, tried PKG_CONFIG_PATH=/usr/local/ssl/lib64/pkgconfig, passing --with-openssl-dir
 # and even RUBY_BUILD_VENDOR_OPENSSL=1. I don't think we care about the openssl version used anymore (our conan ruby is used for building)
 # rbenv-installer does not allow specifying the PATH where it's going to be installed
-RUN apt-get update -qq && apt-get install -y --no-install-recommends --no-install-suggests autoconf patch build-essential rustc libssl-dev libyaml-dev libreadline6-dev zlib1g-dev \
+RUN apt-get install -y --no-install-recommends --no-install-suggests autoconf patch build-essential rustc libssl-dev libyaml-dev libreadline6-dev zlib1g-dev \
         libgmp-dev libncurses5-dev libffi-dev libgdbm6 libgdbm-dev libdb-dev uuid-dev \
     && git clone https://github.com/rbenv/rbenv.git ${RBENV_ROOT} \
     && git clone https://github.com/rbenv/ruby-build.git $RBENV_ROOT/plugins/ruby-build \
-    && rbenv init bash \
-    && RUBY_CONFIGURE_OPTS="--disable-shared" rbenv install -v ${RUBY_VERSION} \
-    && rbenv global ${RUBY_VERSION} \
+    && bash -c 'eval "$(${RBENV_ROOT}/bin/rbenv init - bash)" && RUBY_CONFIGURE_OPTS="--disable-shared" rbenv install -v ${RUBY_VERSION} && rbenv global ${RUBY_VERSION}' \
     && ruby --version \
     && ruby -e "require 'openssl'; puts OpenSSL::VERSION" \
-    && gem install bundler -v "${BUNDLER_VERSION}" \
+    && gem install bundler -v "${BUNDLER_VERSION}" --no-document \
     && echo "Shenanigans to fix the bundle tests" \
     && RUBY_MAJOR_MINOR=$(echo ${RUBY_VERSION} | cut -d '.' -f 1,2).0 \
     && mkdir -p /opt/rbenv/versions/${RUBY_VERSION}/lib/ruby/gems/${RUBY_MAJOR_MINOR}/gems/bundler-${BUNDLER_VERSION}/libexec \
@@ -161,7 +159,7 @@ RUN cd /tmp && wget https://github.com/ccache/ccache/releases/download/v${CCACHE
 ARG DOXYGEN_VERSION_UNDERSCORED=1_10_0
 RUN if [ -n "${DOXYGEN_VERSION_UNDERSCORED}" ]; then \
       cd /tmp \
-      && apt-get update -qq && apt-get install -y --no-install-recommends --no-install-suggests flex bison \
+      && apt-get install -y --no-install-recommends --no-install-suggests flex bison \
       && wget https://github.com/doxygen/doxygen/archive/refs/tags/Release_${DOXYGEN_VERSION_UNDERSCORED}.tar.gz \
       && tar xfz Release_${DOXYGEN_VERSION_UNDERSCORED}.tar.gz \
       && cd doxygen-Release_${DOXYGEN_VERSION_UNDERSCORED} \
@@ -186,7 +184,7 @@ RUN ARCH=$(uname -m) && \
     && QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-${QTIFW_ARCH}-${QTIFW_VERSION}.run" \
     && curl -fsSL -o qtifw.run "${QTIFW_URL}" \
     && chmod +x qtifw.run \
-    && apt-get update -qq && apt-get install -y --no-install-recommends --no-install-suggests libxkbcommon-x11-0 xorg-dev libgl1-mesa-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-shape0 libxcb-cursor0 libdbus-1-3 libwebp-dev \
+    && pt-get install -y --no-install-recommends --no-install-suggests libxkbcommon-x11-0 xorg-dev libgl1-mesa-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-shape0 libxcb-cursor0 libdbus-1-3 libwebp-dev \
     && ./qtifw.run \
         --accept-licenses \
         --confirm-command \
