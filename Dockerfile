@@ -95,6 +95,13 @@ RUN apt-get install -y build-essential libssl-dev zlib1g-dev \
     && pyenv global ${PYTHON_VERSION} \
     && pip install -q --upgrade --no-cache-dir pip setuptools
 
+# Update CA certificates
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    update-ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install conan (and configure) and some packages
 RUN python --version \
     && pip install "conan==2.17.0" gcovr "pandas==2.2.3" "numpy==2.0.2" "pytest==8.3.3" pytest-xdist twine requests packaging "tabulate==0.9.0" \
