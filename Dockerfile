@@ -95,12 +95,13 @@ RUN apt-get install -y build-essential libssl-dev zlib1g-dev \
     && pyenv global ${PYTHON_VERSION} \
     && pip install -q --upgrade --no-cache-dir pip setuptools
 
-# Update CA certificates
-RUN update-ca-certificates
+# Update CA certificates and install ca-certificates-java for better SSL support
+RUN apt-get update -qq && apt-get install -y --no-install-recommends ca-certificates-java \
+    && update-ca-certificates
 
 # Install conan (and configure) and some packages
 RUN python --version \
-    && pip install "conan==2.17.0" gcovr "pandas==2.2.3" "numpy==2.0.2" "pytest==8.3.3" pytest-xdist twine requests packaging "tabulate==0.9.0" \
+    && pip install "conan==2.17.0" gcovr "pandas==2.2.3" "numpy==2.0.2" "pytest==8.3.3" pytest-xdist twine requests packaging "tabulate==0.9.0" certifi \
     && conan --version \
     && conan profile detect \
     && sed -i 's/cppstd=.*$/cppstd=20/g' $HOME/.conan2/profiles/default \
