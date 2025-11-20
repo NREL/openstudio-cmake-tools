@@ -184,7 +184,7 @@ RUN ARCH=$(uname -m) && \
     && QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-${QTIFW_ARCH}-${QTIFW_VERSION}.run" \
     && curl -fsSL -o qtifw.run "${QTIFW_URL}" \
     && chmod +x qtifw.run \
-    && pt-get install -y --no-install-recommends --no-install-suggests libxkbcommon-x11-0 xorg-dev libgl1-mesa-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-shape0 libxcb-cursor0 libdbus-1-3 libwebp-dev \
+    && apt-get install -y --no-install-recommends --no-install-suggests libxkbcommon-x11-0 xorg-dev libgl1-mesa-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-shape0 libxcb-cursor0 libdbus-1-3 libwebp-dev \
     && ./qtifw.run \
         --accept-licenses \
         --confirm-command \
