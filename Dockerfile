@@ -25,7 +25,7 @@ RUN apt-get update -qq --fix-missing && apt-get install -y --no-install-recommen
     libreadline-dev libyaml-dev libharfbuzz-dev libgmp-dev patchelf python3 python3-pip python3-dev \
     lcov wget ninja-build gpg-agent software-properties-common ca-certificates pkgconf \
     jq zip unzip p7zip-full p7zip-rar aria2 file openssh-client tree bash-completion ripgrep tmate \
-    groff less \
+    groff less locales ca-certificates-java \
     && ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
         CLI_ZIP="awscli-exe-linux-x86_64.zip"; \
@@ -37,10 +37,7 @@ RUN apt-get update -qq --fix-missing && apt-get install -y --no-install-recommen
     && cd /tmp \
     && curl "https://awscli.amazonaws.com/${CLI_ZIP}" -o "awscliv2.zip" \
     && unzip awscliv2.zip \
-    && ./aws/install
-
-# Set the locale
-RUN apt-get -y --no-install-recommends --no-install-suggests install locales \
+    && ./aws/install \
     && sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
     && locale-gen
 
@@ -87,16 +84,13 @@ ENV PYENV_ROOT=/opt/pyenv \
     PYTHON_VERSION=${PYTHON_VERSION}
 
 # Install python from pyenv
-RUN apt-get install -y build-essential libssl-dev zlib1g-dev \
+RUN apt-get update -qq && apt-get install -y --no-install-recommends --no-install-suggests build-essential libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev curl \
         libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev \
     && curl https://pyenv.run | bash \
     && PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install ${PYTHON_VERSION} \
     && pyenv global ${PYTHON_VERSION} \
-    && pip install -q --upgrade --no-cache-dir pip setuptools
-
-# Update CA certificates and install ca-certificates-java for better SSL support
-RUN apt-get update -qq && apt-get install -y --no-install-recommends ca-certificates-java \
+    && pip install -q --upgrade --no-cache-dir pip setuptools \
     && update-ca-certificates
 
 # Install conan (and configure) and some packages
@@ -120,7 +114,8 @@ RUN cd /tmp && echo "Start by installing ${OPENSSL_VERSION}" \
     && wget https://www.openssl.org/source/old/$(echo ${OPENSSL_VERSION} | cut -d '.' -f 1,2)/openssl-${OPENSSL_VERSION}.tar.gz \
     && tar xfz openssl-${OPENSSL_VERSION}.tar.gz && cd openssl-${OPENSSL_VERSION} \
     && ./config --prefix=/usr/local/ssl --openssldir=/usr/local/ssl '-Wl,-rpath,$(LIBRPATH)' \
-    && make --quiet -j $(nproc) && make install --quiet
+    && make --quiet -j $(nproc) && make install --quiet \
+    && rm -rf /tmp/openssl-${OPENSSL_VERSION}*
 
 ENV RBENV_ROOT=/opt/rbenv \
     PATH=/opt/rbenv/versions/${RUBY_VERSION}/bin:/opt/rbenv/shims:/opt/rbenv/bin:${PATH}
@@ -130,7 +125,7 @@ ENV RBENV_ROOT=/opt/rbenv \
 # focal is giving me trouble, tried PKG_CONFIG_PATH=/usr/local/ssl/lib64/pkgconfig, passing --with-openssl-dir
 # and even RUBY_BUILD_VENDOR_OPENSSL=1. I don't think we care about the openssl version used anymore (our conan ruby is used for building)
 # rbenv-installer does not allow specifying the PATH where it's going to be installed
-RUN apt-get install -y autoconf patch build-essential rustc libssl-dev libyaml-dev libreadline6-dev zlib1g-dev \
+RUN apt-get update -qq && apt-get install -y --no-install-recommends --no-install-suggests autoconf patch build-essential rustc libssl-dev libyaml-dev libreadline6-dev zlib1g-dev \
         libgmp-dev libncurses5-dev libffi-dev libgdbm6 libgdbm-dev libdb-dev uuid-dev \
     && git clone https://github.com/rbenv/rbenv.git ${RBENV_ROOT} \
     && git clone https://github.com/rbenv/ruby-build.git $RBENV_ROOT/plugins/ruby-build \
@@ -141,8 +136,9 @@ RUN apt-get install -y autoconf patch build-essential rustc libssl-dev libyaml-d
     && ruby -e "require 'openssl'; puts OpenSSL::VERSION" \
     && gem install bundler -v "${BUNDLER_VERSION}" \
     && echo "Shenanigans to fix the bundle tests" \
-    && mkdir -p /opt/rbenv/versions/3.2.2/lib/ruby/gems/3.2.0/gems/bundler-2.4.10/libexec \
-    && ln -sf ../exe/bundle /opt/rbenv/versions/3.2.2/lib/ruby/gems/3.2.0/gems/bundler-2.4.10/libexec/bundle
+    && RUBY_MAJOR_MINOR=$(echo ${RUBY_VERSION} | cut -d '.' -f 1,2).0 \
+    && mkdir -p /opt/rbenv/versions/${RUBY_VERSION}/lib/ruby/gems/${RUBY_MAJOR_MINOR}/gems/bundler-${BUNDLER_VERSION}/libexec \
+    && ln -sf ../exe/bundle /opt/rbenv/versions/${RUBY_VERSION}/lib/ruby/gems/${RUBY_MAJOR_MINOR}/gems/bundler-${BUNDLER_VERSION}/libexec/bundle
 
 # RUN cd /tmp \
 #     && echo "Fixing CA certificate issue" \
@@ -158,18 +154,20 @@ ARG CCACHE_VERSION=4.11.3
 RUN cd /tmp && wget https://github.com/ccache/ccache/releases/download/v${CCACHE_VERSION}/ccache-${CCACHE_VERSION}.tar.gz \
     && tar xfz ccache-${CCACHE_VERSION}.tar.gz && cd ccache-${CCACHE_VERSION} \
     && mkdir build && cd build && cmake -G Ninja -DCMAKE_BUILD_TYPE=Release .. \
-    && ninja && ninja install
+    && ninja && ninja install \
+    && rm -rf /tmp/ccache-${CCACHE_VERSION}*
 
 # Install specific version of doxygen (eg: 1_10_0). If empty, the step is completely ignored
 ARG DOXYGEN_VERSION_UNDERSCORED=1_10_0
 RUN if [ -n "${DOXYGEN_VERSION_UNDERSCORED}" ]; then \
       cd /tmp \
-      && apt-get -y --no-install-recommends --no-install-suggests install flex bison \
+      && apt-get update -qq && apt-get install -y --no-install-recommends --no-install-suggests flex bison \
       && wget https://github.com/doxygen/doxygen/archive/refs/tags/Release_${DOXYGEN_VERSION_UNDERSCORED}.tar.gz \
       && tar xfz Release_${DOXYGEN_VERSION_UNDERSCORED}.tar.gz \
       && cd doxygen-Release_${DOXYGEN_VERSION_UNDERSCORED} \
       && mkdir build && cd build && cmake -G Ninja -DCMAKE_BUILD_TYPE=Release .. \
       && ninja && ninja install \
+      && rm -rf /tmp/Release_${DOXYGEN_VERSION_UNDERSCORED}.tar.gz /tmp/doxygen-Release_${DOXYGEN_VERSION_UNDERSCORED} \
     ; fi
 
 # Install QtIFW to the default directory, but explicitly
@@ -188,17 +186,12 @@ RUN ARCH=$(uname -m) && \
     && QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-${QTIFW_ARCH}-${QTIFW_VERSION}.run" \
     && curl -fsSL -o qtifw.run "${QTIFW_URL}" \
     && chmod +x qtifw.run \
-    && apt-get -y install libxkbcommon-x11-0 xorg-dev libgl1-mesa-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-shape0 libxcb-cursor0 libdbus-1-3 libwebp-dev \
+    && apt-get update -qq && apt-get install -y --no-install-recommends --no-install-suggests libxkbcommon-x11-0 xorg-dev libgl1-mesa-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-randr0-dev libxcb-shape0 libxcb-cursor0 libdbus-1-3 libwebp-dev \
     && ./qtifw.run \
         --accept-licenses \
         --confirm-command \
-        --default-answer --root ${QTIFW_INSTALL_DIR} install
-
-## Cleanup cached apt data we don't need anymore
-RUN apt-get -qq autoremove -y \
-    && apt-get -qq autoclean \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /tmp/*
+        --default-answer --root ${QTIFW_INSTALL_DIR} install \
+    && rm -rf /var/lib/apt/lists/*
 
 # create default user ubuntu (added by default already starting at noble), Jenkins uses it
 RUN if [ "${VARIANT}" = "focal" ] || [ "${VARIANT}" = "jammy" ]; then useradd -u 1000 ubuntu; fi
@@ -210,5 +203,15 @@ COPY report_tool_infos.py /usr/local/bin/report_tool_infos
 # Make another copy at /opt/config
 COPY .inputrc .bashrc /opt/config/
 COPY git-prompt.sh /opt/config/
+
+## Cleanup cached apt data we don't need anymore
+RUN apt-get -qq autoremove -y \
+    && apt-get -qq autoclean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/*
+
+# Switch to non-root user for better security
+USER ubuntu
+WORKDIR /home/ubuntu
 
 CMD ["/bin/bash"]
