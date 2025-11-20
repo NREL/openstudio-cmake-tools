@@ -96,11 +96,7 @@ RUN apt-get install -y build-essential libssl-dev zlib1g-dev \
     && pip install -q --upgrade --no-cache-dir pip setuptools
 
 # Update CA certificates
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates && \
-    update-ca-certificates && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN update-ca-certificates
 
 # Install conan (and configure) and some packages
 RUN python --version \
